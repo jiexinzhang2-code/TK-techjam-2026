@@ -1,0 +1,31 @@
+# Python environments and generated caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Operating-system and editor files
+.DS_Store
+~$*
+*.textClipping
+
+# Large source datasets and archives (keep locally; do not commit to Git)
+kuairand-starter-kit/KuaiRand-Pure/data/
+kuairand-starter-kit/KuaiRand-Pure.tar.gz
+
+# Generated experiment outputs and model artifacts
+checkpoints/
+models/
+outputs/
+runs/
+*.pt
+*.pth
+*.ckpt
+*.pkl
+
+# Local secrets
+.env
+.env.*
+!.env.example
