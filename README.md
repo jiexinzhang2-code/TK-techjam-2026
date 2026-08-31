@@ -1,4 +1,20 @@
-# KuaiRand-Pure Starter Kit
+# Evidence-Aware Autonomous Research Agent for KuaiRand
+
+This project extends the KuaiRand-Pure Starter Kit with a controlled autonomous ML research loop. A `gpt-5.6-sol` planner proposes one bounded experiment at a time; local policy validates the plan, NumPy model tools train and evaluate on the official validation split, and an append-only ledger records every decision. The final evidence-aware run improved validation Primary from the official `0.601600` FM baseline to **`0.605179`** with zero manual interventions and zero GPU-hours.
+
+## Submission snapshot
+
+| Item | Value |
+|---|---|
+| Required benchmark | KuaiRand-Pure |
+| Validation GAUC / nDCG@5 / Primary | **0.671803 / 0.538556 / 0.605179** |
+| Absolute Primary delta vs official baseline | **+0.003579** |
+| Iterations | 15 / 50 |
+| LLM tokens (input + output) | 209,035 |
+| End-to-end agent wall-clock | 563.895 seconds |
+| GPU-hours / manual interventions | 0.0 / 0 |
+
+The complete submission package is indexed in [`deliverables/README.md`](deliverables/README.md), including the Devpost description, per-iteration logs, results/resource report, checkpoint, and Starter Kit-format prediction file.
 
 ## 依赖
 
@@ -285,3 +301,78 @@ python3 -m unittest discover -s tests -v
 ```
 
 To integrate another model without changing the orchestrator, implement the `ExperimentTool.run(plan, context) -> ToolOutput` protocol, register it with a `ToolDefinition` and parameter validators, and provide a `MODULE:FUNCTION` driver returning `(ToolRegistry, Planner)`. See `agent.synthetic` for the minimal fixture, `agent.kuairand` for the production adapter, and `docs/open_source_adaptation.md` for design provenance.
+
+## Setup and installation
+
+```bash
+git clone https://github.com/jiexinzhang2-code/TK-techjam-2026.git
+cd TK-techjam-2026
+git checkout feature/bpr-fm
+
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+Download KuaiRand-Pure using the commands in the [Data section](#数据). The dataset remains outside Git.
+
+For an API-planned run, configure the provider interactively with `python3 -m agent --configure`, or supply `KUAI_AGENT_LLM_PROVIDER=openai` and `OPENAI_API_KEY` through the environment. Credentials are never stored in the repository.
+
+## Reproduce the selected result
+
+The autonomous research path can vary because it contains live LLM decisions. Reproduce the full agent study with:
+
+```bash
+python3 -m agent \
+  --data-dir /path/to/KuaiRand-Pure/data \
+  --run-id evidence-reproduction \
+  --max-iterations 15 \
+  --max-wall-seconds 21600 \
+  --convergence-patience 12 \
+  --non-interactive
+```
+
+Reproduce the deterministic selected configuration directly with:
+
+```bash
+python3 -m models.run_trial \
+  --variant history_pairwise \
+  --data-dir /path/to/KuaiRand-Pure/data \
+  --starter-dir . \
+  --output-dir outputs/final-reproduction \
+  --k 16 --lr 0.0007 --l2 0.0001 \
+  --epochs 40 --batch-size 16384 --patience 4 \
+  --negative-per-positive 1 --max-pairs-per-epoch 0 --seed 0
+
+python3 submit.py \
+  --data_dir /path/to/KuaiRand-Pure/data \
+  --split valid --check outputs/final-reproduction/validation_predictions.csv
+```
+
+Export and validate the test submission without scoring test labels:
+
+```bash
+python3 scripts/export_checkpoint_submission.py \
+  --data-dir /path/to/KuaiRand-Pure/data \
+  --checkpoint outputs/final-reproduction/best_model.npz \
+  --config outputs/final-reproduction/config.json \
+  --output submission.csv
+
+python3 submit.py \
+  --data_dir /path/to/KuaiRand-Pure/data \
+  --split test --check submission.csv
+```
+
+## Limitations and future work
+
+- Results are validation-best measurements, not hidden-test score claims.
+- Dynamic search used one seed; the selected configuration should be confirmed across multiple seeds when budget permits.
+- Rich diagnostic context improved search quality but increased LLM token consumption. Future versions should retain full diagnostics only for the baseline, latest trial, and current best.
+- The current registry does not expose a combined history-plus-hard-negative tool variant.
+- KuaiRand-1k and KuaiRand-27k bonus benchmarks were not attempted.
+- Promising next steps include listwise objectives, auxiliary watch-time tasks, history-aware hard negatives, and automatic multi-seed confirmation.
+
+## Team member contributions
+
+- **Mr.Handsome / [`jiexinzhang2-code`](https://github.com/jiexinzhang2-code):** autonomous-agent integration, dynamic planner fixes, OpenAI API migration, evidence summaries, full-data experiments, auditing, and final deliverables.
+- **[`OwenWen00`](https://github.com/OwenWen00):** Starter Kit repository foundation and official baseline reproduction, retained with Git attribution. If this contributor is not a registered team participant, list this line as upstream attribution rather than a team role on Devpost.

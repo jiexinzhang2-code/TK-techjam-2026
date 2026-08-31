@@ -1,0 +1,346 @@
+{
+  "status": "complete",
+  "best_epoch": 19,
+  "valid": {
+    "GAUC": 0.6718026995658875,
+    "nDCG@5": 0.5385560393333435,
+    "primary": 0.6051793694496155,
+    "delta_vs_official_valid_fm": 0.003579378128051758
+  },
+  "test": null,
+  "runtime_seconds": 29.661,
+  "planner_evidence": {
+    "data_profile": {
+      "label": "long_view",
+      "splits": {
+        "train": {
+          "rows": 1141112,
+          "positive_rate": 0.33662,
+          "date_range": [
+            20220409,
+            20220421
+          ],
+          "cardinality": {
+            "users": 26210,
+            "videos": 7538,
+            "authors": 6482,
+            "tabs": 15
+          },
+          "missing_rate": {
+            "user_id": 0.0,
+            "video_id": 0.0,
+            "author_id": 0.0,
+            "tab": 0.0
+          }
+        },
+        "valid": {
+          "rows": 124909,
+          "positive_rate": 0.313284,
+          "date_range": [
+            20220422,
+            20220428
+          ],
+          "cardinality": {
+            "users": 22377,
+            "videos": 5951,
+            "authors": 5315,
+            "tabs": 15
+          },
+          "missing_rate": {
+            "user_id": 0.0,
+            "video_id": 0.0,
+            "author_id": 0.0,
+            "tab": 0.0
+          }
+        }
+      },
+      "valid_cold_start_rate": {
+        "users": 0.015932,
+        "videos": 0.000136,
+        "authors": 0.000112
+      }
+    },
+    "feature_matrix": {
+      "shape": {
+        "train_rows": 1141112,
+        "valid_rows": 124909,
+        "fields_per_row": 11,
+        "one_hot_dimension": 40345
+      },
+      "one_hot_density": 0.000273,
+      "fields": [
+        {
+          "name": "user_id",
+          "dimension_including_unk": 26211,
+          "train_observed_values": 26210,
+          "valid_unseen_rate": 0.015932,
+          "valid_coverage": 0.984068
+        },
+        {
+          "name": "video_id",
+          "dimension_including_unk": 7539,
+          "train_observed_values": 7538,
+          "valid_unseen_rate": 0.000136,
+          "valid_coverage": 0.999864
+        },
+        {
+          "name": "author_id",
+          "dimension_including_unk": 6483,
+          "train_observed_values": 6482,
+          "valid_unseen_rate": 0.000112,
+          "valid_coverage": 0.999888
+        },
+        {
+          "name": "tab",
+          "dimension_including_unk": 16,
+          "train_observed_values": 15,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "dur_bucket",
+          "dimension_including_unk": 11,
+          "train_observed_values": 10,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "hour_bucket",
+          "dimension_including_unk": 25,
+          "train_observed_values": 24,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "weekday",
+          "dimension_including_unk": 8,
+          "train_observed_values": 7,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "user_past_count_bucket",
+          "dimension_including_unk": 11,
+          "train_observed_values": 10,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "user_past_long_view_rate_bucket",
+          "dimension_including_unk": 13,
+          "train_observed_values": 12,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "item_past_count_bucket",
+          "dimension_including_unk": 15,
+          "train_observed_values": 14,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        },
+        {
+          "name": "item_past_long_view_rate_bucket",
+          "dimension_including_unk": 13,
+          "train_observed_values": 12,
+          "valid_unseen_rate": 0.0,
+          "valid_coverage": 1.0
+        }
+      ]
+    },
+    "training": {
+      "requested_epochs": 40,
+      "actual_epochs": 23,
+      "best_epoch": 19,
+      "stopped_early": true,
+      "stop_reason": "early_stop_after_4_bad_epochs",
+      "loss_trend": {
+        "first": 0.68246,
+        "last": 0.542301,
+        "minimum": 0.542301,
+        "first_to_last_delta": -0.14016
+      },
+      "primary_trend": {
+        "first": 0.588088,
+        "last": 0.604248,
+        "best": 0.605179,
+        "first_to_best_delta": 0.017091,
+        "after_best_delta": -0.000932
+      }
+    },
+    "prediction": {
+      "score_distribution": {
+        "mean": 3.36296,
+        "std": 1.114905,
+        "min": -0.852653,
+        "p01": 0.441442,
+        "p10": 1.32001,
+        "median": 3.686984,
+        "p90": 4.445529,
+        "p99": 4.98161,
+        "max": 6.032123
+      },
+      "user_exposure_groups": {
+        "1_to_5": {
+          "rows": 37566,
+          "users": 14254,
+          "primary": 0.59724,
+          "GAUC": 0.666802,
+          "nDCG@5": 0.527677
+        },
+        "6_to_10": {
+          "rows": 39587,
+          "users": 5225,
+          "primary": 0.639103,
+          "GAUC": 0.679812,
+          "nDCG@5": 0.598395
+        },
+        "11_plus": {
+          "rows": 47756,
+          "users": 2898,
+          "primary": 0.575843,
+          "GAUC": 0.667521,
+          "nDCG@5": 0.484165
+        }
+      },
+      "ranking_errors": {
+        "mixed_users": 12929,
+        "mixed_user_top1_miss_rate": 0.431046,
+        "users_with_positive": 15592,
+        "positive_user_top5_miss_rate": 0.027065
+      },
+      "correlation_with_run_pointwise_baseline": null
+    },
+    "model": {
+      "embedding_dimension": 16,
+      "embedding_row_norm": {
+        "mean": 0.033857,
+        "std": 0.039412,
+        "max": 0.850591,
+        "three_sigma_outlier_rate": 0.018342
+      },
+      "linear_weight": {
+        "mean": -0.000517,
+        "std": 0.013834,
+        "max_abs": 0.121352
+      },
+      "feature_group_importance_proxy": [
+        {
+          "name": "user_id",
+          "rows": 26211,
+          "embedding_norm_mean": 0.019417,
+          "linear_abs_mean": 0.0,
+          "importance_proxy": 0.019417
+        },
+        {
+          "name": "video_id",
+          "rows": 7539,
+          "embedding_norm_mean": 0.05776,
+          "linear_abs_mean": 0.017909,
+          "importance_proxy": 0.075668
+        },
+        {
+          "name": "author_id",
+          "rows": 6483,
+          "embedding_norm_mean": 0.059752,
+          "linear_abs_mean": 0.018308,
+          "importance_proxy": 0.078061
+        },
+        {
+          "name": "tab",
+          "rows": 16,
+          "embedding_norm_mean": 0.314881,
+          "linear_abs_mean": 0.057995,
+          "importance_proxy": 0.372876
+        },
+        {
+          "name": "dur_bucket",
+          "rows": 11,
+          "embedding_norm_mean": 0.333955,
+          "linear_abs_mean": 0.030444,
+          "importance_proxy": 0.3644
+        },
+        {
+          "name": "hour_bucket",
+          "rows": 25,
+          "embedding_norm_mean": 0.314666,
+          "linear_abs_mean": 0.030676,
+          "importance_proxy": 0.345342
+        },
+        {
+          "name": "weekday",
+          "rows": 8,
+          "embedding_norm_mean": 0.365651,
+          "linear_abs_mean": 0.028792,
+          "importance_proxy": 0.394443
+        },
+        {
+          "name": "user_past_count_bucket",
+          "rows": 11,
+          "embedding_norm_mean": 0.326978,
+          "linear_abs_mean": 0.034328,
+          "importance_proxy": 0.361306
+        },
+        {
+          "name": "user_past_long_view_rate_bucket",
+          "rows": 13,
+          "embedding_norm_mean": 0.282136,
+          "linear_abs_mean": 0.055968,
+          "importance_proxy": 0.338103
+        },
+        {
+          "name": "item_past_count_bucket",
+          "rows": 15,
+          "embedding_norm_mean": 0.321956,
+          "linear_abs_mean": 0.028387,
+          "importance_proxy": 0.350344
+        },
+        {
+          "name": "item_past_long_view_rate_bucket",
+          "rows": 13,
+          "embedding_norm_mean": 0.201152,
+          "linear_abs_mean": 0.02272,
+          "importance_proxy": 0.223873
+        }
+      ]
+    }
+  },
+  "config": {
+    "training_mode": "pairwise",
+    "encoder_mode": "history",
+    "negative_strategy": "random",
+    "features": [
+      "user_id",
+      "video_id",
+      "author_id",
+      "tab",
+      "dur_bucket",
+      "hour_bucket",
+      "weekday",
+      "user_past_count_bucket",
+      "user_past_long_view_rate_bucket",
+      "item_past_count_bucket",
+      "item_past_long_view_rate_bucket"
+    ],
+    "k": 16,
+    "lr": 0.0007,
+    "l2": 0.0001,
+    "epochs": 40,
+    "batch_size": 16384,
+    "patience": 4,
+    "seed": 0,
+    "negative_per_positive": 1,
+    "hard_candidates": 5,
+    "hard_negative_warmup": 3,
+    "hard_negative_ratio": 0.5,
+    "max_pairs_per_epoch": 0,
+    "train_rows": 1141112,
+    "valid_rows": 124909,
+    "smoke_test": false
+  },
+  "artifacts": {
+    "checkpoint": "best_model.npz",
+    "epoch_log": "epochs.jsonl",
+    "validation_predictions": "validation_predictions.csv"
+  }
+}

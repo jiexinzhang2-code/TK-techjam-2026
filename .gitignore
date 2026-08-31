@@ -28,6 +28,10 @@ experiments/logs/**/stderr.log
 experiments/logs/**/*.npz
 experiments/logs/**/*predictions.csv
 
+# Submission artifacts intentionally tracked under the deliverables package.
+!deliverables/final/submission.csv
+!deliverables/final/best_model.npz
+
 # Local pre-commit integration probe; reproducible evidence uses a committed SHA.
 experiments/configs/integrated-model-demo/
 experiments/logs/integrated-model-demo/
