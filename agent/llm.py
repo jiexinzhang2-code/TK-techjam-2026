@@ -93,14 +93,20 @@ class OpenAIResponsesClient(JsonHTTPClient):
                 # rejecting provider-supported dynamic parameter dictionaries.
                 "strict": False,
             }
-        response = self._post("/responses", {
+        payload: Dict[str, Any] = {
             "model": self.config.model,
             "instructions": system_prompt,
             "input": user_prompt,
             "text": {"format": response_format},
             "max_output_tokens": 4000,
             "store": False,
-        })
+        }
+        # GPT-5.4's omitted effective effort was none, while GPT-5.6 defaults
+        # to medium. Preserve the existing planner's latency/cost behavior for
+        # a model-only migration instead of silently increasing reasoning.
+        if self.config.model.startswith("gpt-5.6"):
+            payload["reasoning"] = {"effort": "none"}
+        response = self._post("/responses", payload)
         text = response.get("output_text")
         if not isinstance(text, str) or not text.strip():
             chunks: List[str] = []

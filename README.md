@@ -245,7 +245,8 @@ On first use, when neither a local configuration nor `OPENAI_API_KEY` / `DEEPSEE
 
 Supported providers:
 
-- OpenAI API (ChatGPT models) through the Responses API. Default model: `gpt-5.4`.
+- OpenAI API through the Responses API. Default model: `gpt-5.6-sol`, with
+  `reasoning.effort=none` to preserve the previous planner latency/cost baseline.
 - DeepSeek through its Chat Completions-compatible API. Default model: `deepseek-v4-pro`.
 
 Useful commands:

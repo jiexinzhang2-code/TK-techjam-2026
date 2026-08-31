@@ -5,11 +5,14 @@ import unittest
 from pathlib import Path
 
 from agent.config import (
-    LLMConfig, load_config, prompt_for_config, save_config,
+    LLMConfig, PROVIDER_DEFAULTS, load_config, prompt_for_config, save_config,
 )
 
 
 class ConfigTests(unittest.TestCase):
+    def test_openai_default_is_gpt_5_6_sol(self):
+        self.assertEqual("gpt-5.6-sol", PROVIDER_DEFAULTS["openai"]["model"])
+
     def test_save_load_and_mask_key(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config" / "llm.json"

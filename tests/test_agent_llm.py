@@ -77,6 +77,18 @@ class LLMClientTests(unittest.TestCase):
         self.assertEqual(schema, response_format["schema"])
         self.assertFalse(response_format["strict"])
 
+    def test_gpt_5_6_sol_preserves_none_reasoning_effort(self):
+        transport = RecordingTransport({
+            "output_text": '{"action":"stop","plan":null}',
+            "usage": {"total_tokens": 2},
+        })
+        config = LLMConfig(
+            "openai", "gpt-5.6-sol", "https://api.openai.com/v1", "key",
+        )
+        OpenAIResponsesClient(config, transport=transport).complete_json("s", "u")
+        payload = json.loads(transport.requests[0][0].data.decode("utf-8"))
+        self.assertEqual({"effort": "none"}, payload["reasoning"])
+
     def test_deepseek_chat_payload_and_usage(self):
         transport = RecordingTransport({
             "choices": [{"message": {"content": '{"action":"stop","plan":null}'}}],

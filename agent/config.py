@@ -20,7 +20,7 @@ PROVIDER_DEFAULTS = {
         "api_key_env": "DEEPSEEK_API_KEY",
     },
     "openai": {
-        "model": "gpt-5.4",
+        "model": "gpt-5.6-sol",
         "base_url": "https://api.openai.com/v1",
         "api_key_env": "OPENAI_API_KEY",
     },
