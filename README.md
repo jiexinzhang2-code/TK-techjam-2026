@@ -371,8 +371,3 @@ python3 submit.py \
 - The current registry does not expose a combined history-plus-hard-negative tool variant.
 - KuaiRand-1k and KuaiRand-27k bonus benchmarks were not attempted.
 - Promising next steps include listwise objectives, auxiliary watch-time tasks, history-aware hard negatives, and automatic multi-seed confirmation.
-
-## Team member contributions
-
-- **Mr.Handsome / [`jiexinzhang2-code`](https://github.com/jiexinzhang2-code):** autonomous-agent integration, dynamic planner fixes, OpenAI API migration, evidence summaries, full-data experiments, auditing, and final deliverables.
-- **[`OwenWen00`](https://github.com/OwenWen00):** Starter Kit repository foundation and official baseline reproduction, retained with Git attribution. If this contributor is not a registered team participant, list this line as upstream attribution rather than a team role on Devpost.
