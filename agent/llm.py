@@ -166,6 +166,12 @@ After canonical comparisons, propose an untried one-parameter neighbor of the ac
 validation best using search_context. Do not stop merely because candidate_plans were
 already tried; iteration, wall-clock, convergence, and deterministic exhaustion are
 enforced outside you.
+Use planner_evidence as compact diagnostics, not as raw training data. Avoid changing
+epochs above actual_epochs when early stopping already fired, and avoid patience-only
+changes when the best checkpoint and metrics are unchanged. Treat correlations, group
+errors, and weight norms as clues that require a controlled one-change experiment, not
+as proof of causal improvement. Prefer a parameter or registered variant that can alter
+the observed bottleneck while respecting the declared search space.
 The response envelope must be either {\"action\":\"stop\",\"plan\":null} or
 {\"action\":\"plan\",\"plan\":<ExperimentPlan object>}."""
 

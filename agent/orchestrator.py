@@ -124,6 +124,7 @@ class Orchestrator:
             planner_source=planner_diagnostics["planner_source"],
             planner_error=planner_diagnostics["planner_error"],
             planner_response_excerpt=planner_diagnostics["planner_response_excerpt"],
+            planner_evidence={},
         )
         result.validate()
         return result
@@ -178,6 +179,7 @@ class Orchestrator:
                     planner_source=planner_diagnostics["planner_source"],
                     planner_error=planner_diagnostics["planner_error"],
                     planner_response_excerpt=planner_diagnostics["planner_response_excerpt"],
+                    planner_evidence=dict(output.planner_evidence),
                 )
                 result.validate()
                 self.selector.update(state, output.primary, result.run_id, selection)

@@ -192,6 +192,7 @@ class ExperimentResult:
     planner_source: str = "deterministic"
     planner_error: Optional[str] = None
     planner_response_excerpt: Optional[str] = None
+    planner_evidence: Dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         if self.status not in ("accepted", "rejected", "failed"):
@@ -221,6 +222,12 @@ class ExperimentResult:
         if (self.planner_response_excerpt is not None
                 and not isinstance(self.planner_response_excerpt, str)):
             raise SchemaError("planner_response_excerpt must be a string or null")
+        if not isinstance(self.planner_evidence, dict):
+            raise SchemaError("planner_evidence must be a mapping")
+        try:
+            json.dumps(self.planner_evidence, allow_nan=False)
+        except (TypeError, ValueError) as error:
+            raise SchemaError("planner_evidence must be finite JSON: %s" % error)
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -240,9 +247,16 @@ class ToolOutput:
     artifacts: List[str] = field(default_factory=list)
     token_usage: int = 0
     gpu_hours: float = 0.0
+    planner_evidence: Dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         for name in ("GAUC", "ndcg_at_5", "primary"):
             value = float(getattr(self, name))
             if not 0.0 <= value <= 1.0:
                 raise SchemaError("%s must be in [0, 1]" % name)
+        if not isinstance(self.planner_evidence, dict):
+            raise SchemaError("planner_evidence must be a mapping")
+        try:
+            json.dumps(self.planner_evidence, allow_nan=False)
+        except (TypeError, ValueError) as error:
+            raise SchemaError("planner_evidence must be finite JSON: %s" % error)

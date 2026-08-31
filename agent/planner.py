@@ -22,13 +22,15 @@ _PLANNER_HISTORY_FIELDS = (
     "single_primary_change", "hypothesis", "rationale",
     "GAUC", "nDCG@5", "primary", "params", "seed",
     "feature_flags", "plan_fingerprint", "error_class",
-    "recovery_action", "decision_rationale",
+    "recovery_action", "decision_rationale", "planner_evidence",
 )
 
 
 def planner_history_summary(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Return decision evidence without logs, diffs, commands, or artifacts."""
     output: List[Dict[str, Any]] = []
+    seen_data_profile = False
+    seen_feature_profiles = set()
     for record in history:
         compact: Dict[str, Any] = {}
         for name in _PLANNER_HISTORY_FIELDS:
@@ -37,6 +39,19 @@ def planner_history_summary(history: List[Dict[str, Any]]) -> List[Dict[str, Any
             value = record[name]
             if isinstance(value, str) and len(value) > 600:
                 value = value[:597] + "..."
+            if name == "planner_evidence" and isinstance(value, dict):
+                value = dict(value)
+                if seen_data_profile:
+                    value.pop("data_profile", None)
+                elif "data_profile" in value:
+                    seen_data_profile = True
+                feature = value.get("feature_matrix")
+                if isinstance(feature, dict):
+                    signature = json.dumps(feature, sort_keys=True, separators=(",", ":"))
+                    if signature in seen_feature_profiles:
+                        value.pop("feature_matrix", None)
+                    else:
+                        seen_feature_profiles.add(signature)
             compact[name] = value
         output.append(compact)
     return output

@@ -154,11 +154,27 @@ class ContractTests(unittest.TestCase):
             "params": {"x": 1}, "stdout_summary": "large output" * 1000,
             "code_diff_summary": "large diff" * 1000,
             "artifacts": ["private/path"],
+            "planner_evidence": {
+                "data_profile": {"splits": {"train": {"rows": 10}}},
+                "feature_matrix": {"shape": {"fields_per_row": 5}},
+                "training": {"actual_epochs": 4, "best_epoch": 2},
+            },
+        }, {
+            "run_id": "r-E001", "status": "rejected", "primary": 0.59,
+            "planner_evidence": {
+                "data_profile": {"splits": {"train": {"rows": 10}}},
+                "feature_matrix": {"shape": {"fields_per_row": 5}},
+                "training": {"actual_epochs": 5, "best_epoch": 3},
+            },
         }])
         self.assertEqual("r-E000", summary[0]["run_id"])
         self.assertNotIn("stdout_summary", summary[0])
         self.assertNotIn("code_diff_summary", summary[0])
         self.assertNotIn("artifacts", summary[0])
+        self.assertIn("data_profile", summary[0]["planner_evidence"])
+        self.assertNotIn("data_profile", summary[1]["planner_evidence"])
+        self.assertNotIn("feature_matrix", summary[1]["planner_evidence"])
+        self.assertEqual(5, summary[1]["planner_evidence"]["training"]["actual_epochs"])
 
     def test_llm_stop_envelope_and_deterministic_fallback(self):
         stop = JsonPlannerAdapter(

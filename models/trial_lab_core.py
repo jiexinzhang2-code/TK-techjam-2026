@@ -247,6 +247,230 @@ def validate_predictions(path: Path, rows):
         raise ValueError("prediction row count does not match validation")
 
 
+def _rounded(value, digits=6):
+    return round(float(value), digits)
+
+
+def build_data_profile(splits):
+    """Return aggregate train/valid facts safe for the external planner.
+
+    Raw rows, identifiers, local paths, and test labels are intentionally excluded.
+    """
+    profile = {"label": "long_view", "splits": {}}
+    for name in ("train", "valid"):
+        rows = splits[name]
+        labels = np.asarray([row[6] for row in rows], dtype=np.float64)
+        profile["splits"][name] = {
+            "rows": len(rows),
+            "positive_rate": _rounded(labels.mean()) if len(labels) else None,
+            "date_range": (
+                [int(min(row[0] for row in rows)), int(max(row[0] for row in rows))]
+                if rows else None
+            ),
+            "cardinality": {
+                "users": len({row[1] for row in rows}),
+                "videos": len({row[2] for row in rows}),
+                "authors": len({row[3] for row in rows}),
+                "tabs": len({row[4] for row in rows}),
+            },
+            "missing_rate": {
+                "user_id": _rounded(sum(not row[1] for row in rows) / len(rows)) if rows else 0.0,
+                "video_id": _rounded(sum(not row[2] for row in rows) / len(rows)) if rows else 0.0,
+                "author_id": _rounded(
+                    sum(not row[3] or row[3] == "UNK" for row in rows) / len(rows)
+                ) if rows else 0.0,
+                "tab": _rounded(sum(not row[4] for row in rows) / len(rows)) if rows else 0.0,
+            },
+        }
+
+    train = splits["train"]
+    valid = splits["valid"]
+    train_values = {
+        "users": {row[1] for row in train},
+        "videos": {row[2] for row in train},
+        "authors": {row[3] for row in train},
+    }
+    profile["valid_cold_start_rate"] = {
+        key: _rounded(sum(row[index] not in train_values[key] for row in valid) / len(valid))
+        if valid else 0.0
+        for key, index in (("users", 1), ("videos", 2), ("authors", 3))
+    }
+    return profile
+
+
+def _field_ranges(X_train, feature_names, total_dim):
+    if len(X_train) == 0:
+        return []
+    starts = [int(X_train[:, index].min()) for index in range(len(feature_names))]
+    ends = starts[1:] + [int(total_dim)]
+    return list(zip(feature_names, starts, ends))
+
+
+def build_feature_profile(X_train, X_valid, feature_names, total_dim):
+    fields = []
+    for index, (name, start, end) in enumerate(
+        _field_ranges(X_train, feature_names, total_dim)
+    ):
+        train_values = np.unique(X_train[:, index])
+        valid_values = X_valid[:, index]
+        unseen_rate = (
+            float(np.mean(~np.isin(valid_values, train_values))) if len(valid_values) else 0.0
+        )
+        fields.append({
+            "name": name,
+            "dimension_including_unk": end - start,
+            "train_observed_values": int(len(train_values)),
+            "valid_unseen_rate": _rounded(unseen_rate),
+            "valid_coverage": _rounded(1.0 - unseen_rate),
+        })
+    active = len(feature_names)
+    return {
+        "shape": {
+            "train_rows": int(len(X_train)),
+            "valid_rows": int(len(X_valid)),
+            "fields_per_row": active,
+            "one_hot_dimension": int(total_dim),
+        },
+        "one_hot_density": _rounded(active / total_dim) if total_dim else 0.0,
+        "fields": fields,
+    }
+
+
+def build_training_diagnostics(epoch_records, requested_epochs, patience, best_epoch):
+    if not epoch_records:
+        return {}
+    primary = np.asarray(
+        [record["valid"]["primary"] for record in epoch_records], dtype=np.float64
+    )
+    losses = np.asarray([record["loss"] for record in epoch_records], dtype=np.float64)
+    actual_epochs = len(epoch_records)
+    return {
+        "requested_epochs": int(requested_epochs),
+        "actual_epochs": actual_epochs,
+        "best_epoch": int(best_epoch),
+        "stopped_early": actual_epochs < int(requested_epochs),
+        "stop_reason": (
+            "early_stop_after_%d_bad_epochs" % int(patience)
+            if actual_epochs < int(requested_epochs)
+            else "epoch_budget_reached"
+        ),
+        "loss_trend": {
+            "first": _rounded(losses[0]),
+            "last": _rounded(losses[-1]),
+            "minimum": _rounded(losses.min()),
+            "first_to_last_delta": _rounded(losses[-1] - losses[0]),
+        },
+        "primary_trend": {
+            "first": _rounded(primary[0]),
+            "last": _rounded(primary[-1]),
+            "best": _rounded(primary.max()),
+            "first_to_best_delta": _rounded(primary.max() - primary[0]),
+            "after_best_delta": _rounded(primary[-1] - primary.max()),
+        },
+    }
+
+
+def build_prediction_diagnostics(users, labels, scores, evaluate_fn):
+    scores = np.asarray(scores, dtype=np.float64)
+    labels = np.asarray(labels, dtype=np.float64)
+    quantiles = np.quantile(scores, [0.01, 0.1, 0.5, 0.9, 0.99])
+    by_user = collections.defaultdict(list)
+    for index, user in enumerate(users):
+        by_user[user].append(index)
+
+    buckets = {"1_to_5": [], "6_to_10": [], "11_plus": []}
+    mixed_users = 0
+    top1_misses = 0
+    positive_users = 0
+    top5_no_positive = 0
+    for indices in by_user.values():
+        count = len(indices)
+        bucket = "1_to_5" if count <= 5 else "6_to_10" if count <= 10 else "11_plus"
+        buckets[bucket].extend(indices)
+        user_labels = labels[indices]
+        positives = int(user_labels.sum())
+        if positives:
+            positive_users += 1
+            ranked = np.asarray(indices)[np.argsort(-scores[indices])]
+            if labels[ranked[:5]].sum() == 0:
+                top5_no_positive += 1
+        if 0 < positives < count:
+            mixed_users += 1
+            best_index = indices[int(np.argmax(scores[indices]))]
+            if labels[best_index] == 0:
+                top1_misses += 1
+
+    group_metrics = {}
+    for name, indices in buckets.items():
+        if not indices:
+            continue
+        group_users = [users[index] for index in indices]
+        metrics = evaluate_fn(group_users, labels[indices], scores[indices])
+        group_metrics[name] = {
+            "rows": len(indices),
+            "users": int(metrics["users"]),
+            "primary": _rounded(metrics["primary"]),
+            "GAUC": _rounded(metrics["GAUC"]),
+            "nDCG@5": _rounded(metrics["nDCG@5"]),
+        }
+    return {
+        "score_distribution": {
+            "mean": _rounded(scores.mean()),
+            "std": _rounded(scores.std()),
+            "min": _rounded(scores.min()),
+            "p01": _rounded(quantiles[0]),
+            "p10": _rounded(quantiles[1]),
+            "median": _rounded(quantiles[2]),
+            "p90": _rounded(quantiles[3]),
+            "p99": _rounded(quantiles[4]),
+            "max": _rounded(scores.max()),
+        },
+        "user_exposure_groups": group_metrics,
+        "ranking_errors": {
+            "mixed_users": mixed_users,
+            "mixed_user_top1_miss_rate": _rounded(top1_misses / mixed_users)
+            if mixed_users else 0.0,
+            "users_with_positive": positive_users,
+            "positive_user_top5_miss_rate": _rounded(top5_no_positive / positive_users)
+            if positive_users else 0.0,
+        },
+        "correlation_with_run_pointwise_baseline": None,
+    }
+
+
+def build_model_diagnostics(model, X_train, feature_names, total_dim):
+    row_norms = np.linalg.norm(model.V, axis=1)
+    norm_mean = float(row_norms.mean())
+    norm_std = float(row_norms.std())
+    threshold = norm_mean + 3.0 * norm_std
+    groups = []
+    for name, start, end in _field_ranges(X_train, feature_names, total_dim):
+        group_norms = row_norms[start:end]
+        group_weights = model.W[start:end]
+        groups.append({
+            "name": name,
+            "rows": end - start,
+            "embedding_norm_mean": _rounded(group_norms.mean()),
+            "linear_abs_mean": _rounded(np.abs(group_weights).mean()),
+            "importance_proxy": _rounded(group_norms.mean() + np.abs(group_weights).mean()),
+        })
+    return {
+        "embedding_dimension": int(model.V.shape[1]),
+        "embedding_row_norm": {
+            "mean": _rounded(norm_mean),
+            "std": _rounded(norm_std),
+            "max": _rounded(row_norms.max()),
+            "three_sigma_outlier_rate": _rounded(np.mean(row_norms > threshold)),
+        },
+        "linear_weight": {
+            "mean": _rounded(model.W.mean()),
+            "std": _rounded(model.W.std()),
+            "max_abs": _rounded(np.abs(model.W).max()),
+        },
+        "feature_group_importance_proxy": groups,
+    }
+
+
 def encode_official(data_dir: str, official_data):
     splits = official_data.load(data_dir)
     encoded, dim = official_data.encode(splits)
@@ -524,6 +748,9 @@ def run_experiment(args, training_mode, encoder_mode, negative_strategy="random"
         Xva, yva, uva = Xva[:limit], yva[:limit], uva[:limit]
         valid_rows = valid_rows[:limit]
 
+    data_profile = build_data_profile({"train": train_rows, "valid": valid_rows})
+    feature_profile = build_feature_profile(Xtr, Xva, feature_names, dim)
+
     config = {
         "training_mode": training_mode,
         "encoder_mode": encoder_mode,
@@ -560,6 +787,7 @@ def run_experiment(args, training_mode, encoder_mode, negative_strategy="random"
     best_epoch = 0
     best_state = None
     bad_epochs = 0
+    epoch_records = []
     total_started = time.time()
     for epoch in range(1, args.epochs + 1):
         epoch_started = time.time()
@@ -617,6 +845,7 @@ def run_experiment(args, training_mode, encoder_mode, negative_strategy="random"
             "elapsed_seconds": round(elapsed, 3),
         }
         append_jsonl(epoch_log, record)
+        epoch_records.append(record)
         print(
             f"epoch {epoch:02d} | loss {record['loss']:.4f} | "
             f"valid GAUC {record['valid']['GAUC']:.4f} | "
@@ -643,6 +872,17 @@ def run_experiment(args, training_mode, encoder_mode, negative_strategy="random"
     validation_predictions = output_dir / "validation_predictions.csv"
     write_predictions(validation_predictions, valid_rows, valid_scores)
     validate_predictions(validation_predictions, valid_rows)
+    planner_evidence = {
+        "data_profile": data_profile,
+        "feature_matrix": feature_profile,
+        "training": build_training_diagnostics(
+            epoch_records, args.epochs, args.patience, best_epoch,
+        ),
+        "prediction": build_prediction_diagnostics(
+            uva, yva, valid_scores, official_eval.evaluate,
+        ),
+        "model": build_model_diagnostics(model, Xtr, feature_names, dim),
+    }
 
     test_metrics = None
     if args.score_test:
@@ -673,6 +913,7 @@ def run_experiment(args, training_mode, encoder_mode, negative_strategy="random"
             }
         ),
         "runtime_seconds": round(time.time() - total_started, 3),
+        "planner_evidence": planner_evidence,
         "config": config,
         "artifacts": {
             "checkpoint": "best_model.npz",

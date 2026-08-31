@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 import sys
@@ -27,6 +28,109 @@ TOOL_VARIANT = {
     "run_hard_negative_bpr": "hard_negative_bpr",
     "run_history_pairwise": "history_pairwise",
 }
+
+
+def _prior_results(root: Path, run_id: str) -> List[Dict[str, Any]]:
+    path = root / "experiments" / "logs" / run_id / "experiments.jsonl"
+    if not path.is_file():
+        return []
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            value = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+    return records
+
+
+def _prediction_artifact(root: Path, record: Dict[str, Any]) -> Optional[Path]:
+    for artifact in record.get("artifacts", []):
+        if not isinstance(artifact, str) or not artifact.endswith("validation_predictions.csv"):
+            continue
+        candidate = (root / artifact).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _score_correlation(left_path: Path, right_path: Path) -> Optional[float]:
+    count = 0
+    sum_x = sum_y = sum_xx = sum_yy = sum_xy = 0.0
+    with left_path.open(newline="", encoding="utf-8") as left_fh, right_path.open(
+        newline="", encoding="utf-8"
+    ) as right_fh:
+        left = csv.DictReader(left_fh)
+        right = csv.DictReader(right_fh)
+        for left_row, right_row in zip(left, right):
+            if (left_row["row_id"], left_row["user_id"], left_row["video_id"]) != (
+                right_row["row_id"], right_row["user_id"], right_row["video_id"]
+            ):
+                return None
+            x = float(left_row["score"])
+            y = float(right_row["score"])
+            count += 1
+            sum_x += x
+            sum_y += y
+            sum_xx += x * x
+            sum_yy += y * y
+            sum_xy += x * y
+        if next(left, None) is not None or next(right, None) is not None:
+            return None
+    if count < 2:
+        return None
+    numerator = count * sum_xy - sum_x * sum_y
+    denominator = math.sqrt(
+        max(0.0, count * sum_xx - sum_x * sum_x)
+        * max(0.0, count * sum_yy - sum_y * sum_y)
+    )
+    return round(numerator / denominator, 6) if denominator else None
+
+
+def _enrich_planner_evidence(root: Path, plan: ExperimentPlan,
+                             current_prediction: Path, primary: float,
+                             evidence: Any) -> Dict[str, Any]:
+    compact = json.loads(json.dumps(evidence)) if isinstance(evidence, dict) else {}
+    prior = [
+        record for record in _prior_results(root, plan.run_id)
+        if record.get("status") in ("accepted", "rejected")
+        and isinstance(record.get("primary"), (int, float))
+    ]
+    baseline = next(
+        (record for record in prior if record.get("requested_tool") == "run_pointwise_fm"),
+        None,
+    )
+    pairwise = [
+        record for record in prior
+        if record.get("requested_tool") == "run_pairwise_bpr"
+    ]
+    prior_best = max((float(record["primary"]) for record in prior), default=None)
+    comparison = {
+        "delta_vs_prior_best": (
+            round(float(primary) - prior_best, 6) if prior_best is not None else None
+        ),
+        "delta_vs_run_pointwise_baseline": (
+            round(float(primary) - float(baseline["primary"]), 6) if baseline else None
+        ),
+        "history_feature_ablation_gain_vs_pairwise": (
+            round(float(primary) - max(float(record["primary"]) for record in pairwise), 6)
+            if plan.requested_tool == "run_history_pairwise" and pairwise else None
+        ),
+    }
+    compact["comparison"] = comparison
+    if baseline:
+        baseline_prediction = _prediction_artifact(root, baseline)
+        prediction = compact.get("prediction")
+        if baseline_prediction is not None and isinstance(prediction, dict):
+            prediction["correlation_with_run_pointwise_baseline"] = _score_correlation(
+                current_prediction, baseline_prediction,
+            )
+    return compact
 
 
 def _is_int(value: Any, low: int, high: int) -> bool:
@@ -172,6 +276,13 @@ class KuaiRandTrialTool:
             "nDCG@5": float(valid["nDCG@5"]),
             "primary": float(valid["primary"]),
         }
+        planner_evidence = _enrich_planner_evidence(
+            root,
+            plan,
+            output_dir / "validation_predictions.csv",
+            metrics["primary"],
+            summary.get("planner_evidence"),
+        )
 
         expected_artifacts = (
             "config.json",
@@ -202,6 +313,7 @@ class KuaiRandTrialTool:
             artifacts=artifact_paths,
             token_usage=0,
             gpu_hours=0.0,
+            planner_evidence=planner_evidence,
         )
         output.validate()
         return output
